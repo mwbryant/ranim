@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use std::io::Cursor;
 use svg;
 use svg::node::element::path::Data;
 use svg::node::element::Path;
@@ -8,9 +9,7 @@ use usvg::{FitTo, Options, Tree};
 
 use resvg::render;
 
-use std::io::{Read, Write};
-//use std::os::unix::io::{FromRawFd, IntoRawFd};
-use std::os::unix::net::UnixStream;
+use std::io::Write;
 
 use std::io::Result;
 
@@ -78,13 +77,10 @@ fn save_to_png<T>(svg_node: T, file_name: String) -> Result<()>
 where
     T: svg::node::Node,
 {
-    let (head_pipe, mut tail_pipe) = UnixStream::pair()?;
-    svg::write(head_pipe, &svg_node)?;
+    let mut svg_data = Cursor::new(Vec::new());
+    svg::write(&mut svg_data, &svg_node)?;
 
-    let mut storage = Vec::new();
-    let _amount_read = tail_pipe.read_to_end(&mut storage)?;
-
-    let svg_tree = Tree::from_data(storage.as_slice(), &Options::default()).unwrap();
+    let svg_tree = Tree::from_data(&svg_data.into_inner(), &Options::default()).unwrap();
 
     let image = render(&svg_tree, FitTo::Original, None).unwrap();
     image.save_png(std::path::Path::new(file_name.as_str()))?;
@@ -93,13 +89,10 @@ where
 }
 
 fn save_to_writable(svg_node: impl svg::node::Node, sink: &mut impl Write) -> Result<()> {
-    let (head_pipe, mut tail_pipe) = UnixStream::pair()?;
-    svg::write(head_pipe, &svg_node)?;
+    let mut svg_data = Cursor::new(Vec::new());
+    svg::write(&mut svg_data, &svg_node)?;
 
-    let mut storage = Vec::new();
-    let _amount_read = tail_pipe.read_to_end(&mut storage)?;
-
-    let svg_tree = Tree::from_data(storage.as_slice(), &Options::default()).unwrap();
+    let svg_tree = Tree::from_data(&svg_data.into_inner(), &Options::default()).unwrap();
 
     let image = render(&svg_tree, FitTo::Original, None).unwrap();
 
