@@ -2,3 +2,5 @@
 *.svg
 *.mp4
 *.mp4.golden
+*.data
+*.data.old

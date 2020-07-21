@@ -3,9 +3,6 @@
 
 use std::io::Cursor;
 use svg;
-use svg::node::element::path::Data;
-use svg::node::element::Path;
-use svg::Document;
 
 use usvg::{FitTo, Options, Tree};
 
@@ -37,6 +34,7 @@ mod scene {
                         .set("stroke-width", 3)
                         .set("stroke", color.clone()),
                 ),
+                #[allow(unreachable_patterns)]
                 _ => panic!("help"),
             }
         }
@@ -84,7 +82,7 @@ mod scene {
         pub fn render(mut self, mut sink: impl Write) -> std::io::Result<()> {
             use crate::save_to_writable;
             for call in self.draw_calls {
-                println!("{:?}", call);
+                println!("Rendering : {:?}", call);
                 match call {
                     DrawCall::Wait(amt) => {
                         let mut svg_image =
@@ -109,31 +107,6 @@ mod scene {
 }
 
 fn main() {
-    let data = Data::new()
-        .move_to((10, 10))
-        .line_by((0, 50))
-        .line_by((50, 0))
-        .line_by((0, -50))
-        .close();
-
-    let path = Path::new()
-        .set("fill", "none")
-        .set("stroke", "green")
-        .set("stroke-width", 3)
-        .set("d", data);
-
-    let data2 = Data::new()
-        .move_to((-4, 10))
-        .line_by((0, 20))
-        .line_by((20, 0))
-        .line_by((40, 50));
-
-    let path2 = Path::new()
-        .set("fill", "none")
-        .set("stroke", "red")
-        .set("stroke-width", 3)
-        .set("d", data2);
-
     let obj = scene::MObj::Rectangle(250., 250., 100., 100., String::from("blue"));
     let obj2 = scene::MObj::Rectangle(350., 350., 100., 100., String::from("green"));
     let scene = scene::Scene::new(500, 500)
@@ -142,26 +115,13 @@ fn main() {
         .wait(1.)
         .appear(&obj2)
         .wait(1.)
+        .wait(300.)
         .disappear(&obj)
         .wait(1.);
-    println!("{:?}", scene);
-
-    let document = Document::new().set("viewBox", (0, 0, 70, 70)).add(path);
-    let document2 = Document::new().set("viewBox", (0, 0, 70, 70)).add(path2);
-
-    //let (head_pipe, tail_pipe) = UnixStream::pair().unwrap();
-    //let tail_pipe = tail_pipe.into_raw_fd();
-    //let infile = unsafe { std::fs::File::from_raw_fd(tail_pipe) };
 
     let ffmpeg_pipe = start_ffmpeg().unwrap();
 
     scene.render(ffmpeg_pipe).unwrap();
-
-    //save_to_writable(&document, &mut ffmpeg_pipe).unwrap();
-    //save_to_writable(&document2, &mut ffmpeg_pipe).unwrap();
-
-    //save_to_png(document, String::from("image1.png")).unwrap();
-    //save_to_png(document2, String::from("image2.png")).unwrap();
 }
 
 fn save_to_png<T>(svg_node: T, file_name: String) -> Result<()>
@@ -206,9 +166,9 @@ fn start_ffmpeg() -> Option<process::ChildStdin> {
     let ffmpeg = process::Command::new("ffmpeg")
         .stdin(process::Stdio::piped())
         .args(&[
-            //"-hide_banner", // Quiets
-            //"-loglevel",    // Silences all messages
-            //"panic",
+            "-hide_banner", // Quiets
+            "-loglevel",    // Silences all messages
+            "panic",
             "-y", // Force overwrite
             "-r",
             "25",
