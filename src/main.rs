@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+#![feature(vec_remove_item)]
+
 use std::io::Cursor;
 use svg;
 use svg::node::element::path::Data;
@@ -15,35 +17,93 @@ use std::io::Result;
 
 use std::process;
 mod scene {
+    use std::io::Write;
+    use svg::Document;
+
+    const FPS: f32 = 25.;
     #[derive(Clone, Debug, PartialEq)]
-    pub struct MObj {}
+    pub enum MObj {
+        Rectangle(f32, f32, f32, f32, String),
+    }
+    impl MObj {
+        fn to_addable(&self) -> svg::node::element::SVG {
+            match self {
+                MObj::Rectangle(x, y, w, h, color) => svg::node::element::SVG::new().add(
+                    svg::node::element::Rectangle::new()
+                        .set("x", x.clone())
+                        .set("y", y.clone())
+                        .set("width", w.clone())
+                        .set("height", h.clone())
+                        .set("stroke-width", 3)
+                        .set("stroke", color.clone()),
+                ),
+                _ => panic!("help"),
+            }
+        }
+    }
 
     #[derive(Debug)]
-    enum DrawCall {
+    enum DrawCall<'a> {
         Wait(f32),
-        Appear(MObj),
-        Disappear(MObj),
+        Appear(&'a MObj),
+        Disappear(&'a MObj),
     }
     #[derive(Debug)]
-    pub struct Scene {
-        draw_calls: Vec<DrawCall>,
-        objects: Vec<MObj>,
+    pub struct Scene<'a> {
+        draw_calls: Vec<DrawCall<'a>>,
+        objects: Vec<&'a MObj>,
+        width: i32,
+        height: i32,
     }
 
-    impl Scene {
-        pub fn new() -> Scene {
+    impl<'a> Scene<'a> {
+        pub fn new(width: i32, height: i32) -> Scene<'a> {
             Scene {
+                width,
+                height,
                 draw_calls: Vec::new(),
                 objects: Vec::new(),
             }
         }
-        fn add_draw_call(mut self, draw_call: DrawCall) -> Self {
+        fn add_draw_call(mut self, draw_call: DrawCall<'a>) -> Self {
             self.draw_calls.push(draw_call);
             self
         }
 
         pub fn wait(self, amt: f32) -> Self {
             self.add_draw_call(DrawCall::Wait(amt))
+        }
+
+        pub fn appear(self, mobj: &'a MObj) -> Self {
+            self.add_draw_call(DrawCall::Appear(mobj))
+        }
+        pub fn disappear(self, mobj: &'a MObj) -> Self {
+            self.add_draw_call(DrawCall::Disappear(mobj))
+        }
+
+        pub fn render(mut self, mut sink: impl Write) -> std::io::Result<()> {
+            use crate::save_to_writable;
+            for call in self.draw_calls {
+                println!("{:?}", call);
+                match call {
+                    DrawCall::Wait(amt) => {
+                        let mut svg_image =
+                            Document::new().set("viewBox", (0, 0, self.width, self.height));
+                        for obj in &self.objects {
+                            svg_image = svg_image.add(obj.to_addable());
+                        }
+                        for _i in 0..(amt * FPS) as i32 {
+                            save_to_writable(&svg_image, &mut sink)?;
+                        }
+                    }
+                    DrawCall::Appear(a) => self.objects.push(a),
+                    DrawCall::Disappear(a) => {
+                        let index = self.objects.iter().position(|x| *x == a).unwrap();
+                        self.objects.remove(index);
+                    }
+                }
+            }
+            Ok(())
         }
     }
 }
@@ -59,11 +119,7 @@ fn main() {
     let path = Path::new()
         .set("fill", "none")
         .set("stroke", "green")
-        .set(
-            "stroke-width
-",
-            3,
-        )
+        .set("stroke-width", 3)
         .set("d", data);
 
     let data2 = Data::new()
@@ -78,9 +134,17 @@ fn main() {
         .set("stroke-width", 3)
         .set("d", data2);
 
-    let _scene = scene::Scene::new().wait(1.);
-    println!("{:?}", _scene);
-    //let dick = _scene.finish();
+    let obj = scene::MObj::Rectangle(250., 250., 100., 100., String::from("blue"));
+    let obj2 = scene::MObj::Rectangle(350., 350., 100., 100., String::from("green"));
+    let scene = scene::Scene::new(500, 500)
+        .wait(1.)
+        .appear(&obj)
+        .wait(1.)
+        .appear(&obj2)
+        .wait(1.)
+        .disappear(&obj)
+        .wait(1.);
+    println!("{:?}", scene);
 
     let document = Document::new().set("viewBox", (0, 0, 70, 70)).add(path);
     let document2 = Document::new().set("viewBox", (0, 0, 70, 70)).add(path2);
@@ -89,10 +153,12 @@ fn main() {
     //let tail_pipe = tail_pipe.into_raw_fd();
     //let infile = unsafe { std::fs::File::from_raw_fd(tail_pipe) };
 
-    let mut ffmpeg_pipe = start_ffmpeg().unwrap();
+    let ffmpeg_pipe = start_ffmpeg().unwrap();
 
-    save_to_writable(document, &mut ffmpeg_pipe).unwrap();
-    save_to_writable(document2, &mut ffmpeg_pipe).unwrap();
+    scene.render(ffmpeg_pipe).unwrap();
+
+    //save_to_writable(&document, &mut ffmpeg_pipe).unwrap();
+    //save_to_writable(&document2, &mut ffmpeg_pipe).unwrap();
 
     //save_to_png(document, String::from("image1.png")).unwrap();
     //save_to_png(document2, String::from("image2.png")).unwrap();
@@ -114,9 +180,9 @@ where
     Ok(())
 }
 
-fn save_to_writable(svg_node: impl svg::node::Node, sink: impl Write) -> Result<()> {
+fn save_to_writable(svg_node: &impl svg::node::Node, sink: impl Write) -> Result<()> {
     let mut svg_data = Cursor::new(Vec::new());
-    svg::write(&mut svg_data, &svg_node)?;
+    svg::write(&mut svg_data, svg_node)?;
 
     let svg_tree = Tree::from_data(&svg_data.into_inner(), &Options::default()).unwrap();
 
@@ -140,12 +206,12 @@ fn start_ffmpeg() -> Option<process::ChildStdin> {
     let ffmpeg = process::Command::new("ffmpeg")
         .stdin(process::Stdio::piped())
         .args(&[
-            "-hide_banner", // Quiets
-            "-loglevel",    // Silences all messages
-            "panic",
+            //"-hide_banner", // Quiets
+            //"-loglevel",    // Silences all messages
+            //"panic",
             "-y", // Force overwrite
             "-r",
-            "1/5",
+            "25",
             "-i", // Use stdin
             "-",
             "-c:v",
