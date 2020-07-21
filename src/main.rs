@@ -14,22 +14,39 @@ use std::io::Write;
 use std::io::Result;
 
 use std::process;
-//mod scene {
-//    pub trait DrawCall {
-//
-//        fn draw_call
-//    }
-//    pub struct Scene {
-//        duration: f32,
-//        current_duration: f32,
-//        draw_calls: Vec<DrawCall>,
-//    }
-//    impl Scene {
-//        fn new()
-//
-//
-//    }
-//}
+mod scene {
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct MObj {}
+
+    #[derive(Debug)]
+    enum DrawCall {
+        Wait(f32),
+        Appear(MObj),
+        Disappear(MObj),
+    }
+    #[derive(Debug)]
+    pub struct Scene {
+        draw_calls: Vec<DrawCall>,
+        objects: Vec<MObj>,
+    }
+
+    impl Scene {
+        pub fn new() -> Scene {
+            Scene {
+                draw_calls: Vec::new(),
+                objects: Vec::new(),
+            }
+        }
+        fn add_draw_call(mut self, draw_call: DrawCall) -> Self {
+            self.draw_calls.push(draw_call);
+            self
+        }
+
+        pub fn wait(self, amt: f32) -> Self {
+            self.add_draw_call(DrawCall::Wait(amt))
+        }
+    }
+}
 
 fn main() {
     let data = Data::new()
@@ -42,7 +59,11 @@ fn main() {
     let path = Path::new()
         .set("fill", "none")
         .set("stroke", "green")
-        .set("stroke-width", 3)
+        .set(
+            "stroke-width
+",
+            3,
+        )
         .set("d", data);
 
     let data2 = Data::new()
@@ -56,6 +77,10 @@ fn main() {
         .set("stroke", "red")
         .set("stroke-width", 3)
         .set("d", data2);
+
+    let _scene = scene::Scene::new().wait(1.);
+    println!("{:?}", _scene);
+    //let dick = _scene.finish();
 
     let document = Document::new().set("viewBox", (0, 0, 70, 70)).add(path);
     let document2 = Document::new().set("viewBox", (0, 0, 70, 70)).add(path2);
@@ -77,6 +102,7 @@ fn save_to_png<T>(svg_node: T, file_name: String) -> Result<()>
 where
     T: svg::node::Node,
 {
+    // TODO: Refractor using writable
     let mut svg_data = Cursor::new(Vec::new());
     svg::write(&mut svg_data, &svg_node)?;
 
@@ -88,7 +114,7 @@ where
     Ok(())
 }
 
-fn save_to_writable(svg_node: impl svg::node::Node, sink: &mut impl Write) -> Result<()> {
+fn save_to_writable(svg_node: impl svg::node::Node, sink: impl Write) -> Result<()> {
     let mut svg_data = Cursor::new(Vec::new());
     svg::write(&mut svg_data, &svg_node)?;
 
