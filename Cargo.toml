@@ -11,3 +11,9 @@ edition = "2018"
 "svg" = "0.8.0"
 "usvg" = "0.11.0"
 "png" = "0.16.7"
+
+[dev-dependencies]
+"criterion" = "0.3"
+[[bench]]
+name = "static_frame"
+harness = false

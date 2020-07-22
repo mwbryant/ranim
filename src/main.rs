@@ -6,7 +6,6 @@ pub mod render;
 pub mod scene;
 
 use crate::mobject::*;
-use crate::render::*;
 use crate::scene::*;
 
 fn main() {
@@ -27,7 +26,7 @@ fn main() {
         h: 100.,
         color: String::from("green"),
     };
-    let scene = Scene::new(500, 500)
+    let mut scene = Scene::new(500, 500)
         .wait(1.)
         .appear(&obj)
         .wait(1.)

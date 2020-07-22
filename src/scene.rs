@@ -45,10 +45,10 @@ impl<'a> Scene<'a> {
         self.add_draw_call(DrawCall::Disappear(mobj))
     }
 
-    pub fn render(mut self, mut sink: impl Write) -> std::io::Result<()> {
-        use crate::save_to_writable;
-        for call in self.draw_calls {
-            println!("Rendering : {:?}", call);
+    pub fn render(&mut self, mut sink: impl Write) -> std::io::Result<()> {
+        use crate::render::save_to_writable;
+        for call in &self.draw_calls {
+            //println!("Rendering : {:?}", call);
             match call {
                 DrawCall::Wait(amt) => {
                     let mut svg_image =
@@ -62,10 +62,75 @@ impl<'a> Scene<'a> {
                 }
                 DrawCall::Appear(a) => self.objects.push(a),
                 DrawCall::Disappear(a) => {
-                    self.objects.retain(|x| *x != a);
+                    self.objects.retain(|x| x != a);
                 }
             }
         }
         Ok(())
     }
 }
+
+#[test]
+fn appear_test() {
+    let obj = Mobject::Rectangle {
+        x: 250.,
+        y: 250.,
+        w: 100.,
+        h: 100.,
+        color: String::from("blue"),
+    };
+
+    let mut scene = Scene::new(500, 500).appear(&obj);
+    scene
+        .render(std::io::sink())
+        .expect("Problem throwing away render");
+    assert_eq!(scene.objects.len(), 1);
+}
+
+#[test]
+fn appear_then_disappear_test() {
+    let obj = Mobject::Rectangle {
+        x: 250.,
+        y: 250.,
+        w: 100.,
+        h: 100.,
+        color: String::from("blue"),
+    };
+
+    let mut scene = Scene::new(500, 500).appear(&obj).disappear(&obj);
+    scene
+        .render(std::io::sink())
+        .expect("Problem throwing away render");
+    assert_eq!(scene.objects.len(), 0);
+}
+
+#[test]
+fn many_appear_then_disappear_test() {
+    let mut scene = Scene::new(500, 500);
+    let mut objects = Vec::new();
+
+    for i in 0..25 {
+        let obj = Mobject::Rectangle {
+            x: i as f32,
+            y: 250.,
+            w: 100.,
+            h: 100.,
+            color: String::from("blue"),
+        };
+        objects.push(obj);
+    }
+
+    for i in &objects {
+        scene = scene.appear(&i);
+    }
+
+    scene = scene.wait(0.03);
+    scene = scene.disappear(&objects.last().unwrap());
+    scene
+        .render(std::io::sink())
+        .expect("Problem throwing away render");
+
+    assert_eq!(scene.objects.len(), 24);
+}
+
+//TODO test appearings objects in random order and make sure all are visible
