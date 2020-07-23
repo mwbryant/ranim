@@ -11,6 +11,13 @@ enum DrawCall<'a> {
     Wait(f32),
     Appear(&'a Mobject),
     Disappear(&'a Mobject),
+    AnimateProperty {
+        object: &'a Mobject,
+        property_name: String,
+        starting_value: f32,
+        ending_value: f32,
+        duration: f32,
+    },
 }
 #[derive(Debug)]
 pub struct Scene<'a> {
@@ -45,6 +52,16 @@ impl<'a> Scene<'a> {
         self.add_draw_call(DrawCall::Disappear(mobj))
     }
 
+    pub fn fade_out(self, mobj: &'a Mobject, duration: f32) -> Self {
+        self.add_draw_call(DrawCall::AnimateProperty {
+            object: mobj,
+            property_name: String::from("opacity"),
+            starting_value: 1.,
+            ending_value: 0.,
+            duration,
+        })
+    }
+
     pub fn render(&mut self, mut sink: impl Write) -> std::io::Result<()> {
         use crate::render::save_to_writable;
         for call in &self.draw_calls {
@@ -63,6 +80,34 @@ impl<'a> Scene<'a> {
                 DrawCall::Appear(a) => self.objects.push(a),
                 DrawCall::Disappear(a) => {
                     self.objects.retain(|x| x != a);
+                }
+                DrawCall::AnimateProperty {
+                    object,
+                    property_name,
+                    starting_value,
+                    ending_value,
+                    duration,
+                } => {
+                    let ending_frame = duration * FPS;
+                    for i in 0..ending_frame as i32 {
+                        // Create the current value from the current frame number
+                        let current_value = ((i as f32 / ending_frame as f32)
+                            * (ending_value - starting_value) as f32)
+                            + *starting_value as f32;
+
+                        let mut svg_image =
+                            Document::new().set("viewBox", (0, 0, self.width, self.height));
+
+                        for obj in &self.objects {
+                            let final_object = if obj == object {
+                                obj.to_addable().set(property_name, current_value)
+                            } else {
+                                obj.to_addable()
+                            };
+                            svg_image = svg_image.add(final_object);
+                        }
+                        save_to_writable(&svg_image, &mut sink)?;
+                    }
                 }
             }
         }

@@ -1,5 +1,3 @@
-use svg;
-
 use resvg::render;
 use std::io::{Cursor, Result, Write};
 use std::path::Path;
@@ -23,7 +21,7 @@ where
     Ok(())
 }
 
-pub fn save_to_writable(svg_node: &impl svg::node::Node, sink: impl Write) -> Result<()> {
+pub fn save_to_writable(svg_node: &impl svg::node::Node, sink: &mut impl Write) -> Result<()> {
     let mut svg_data = Cursor::new(Vec::new());
     svg::write(&mut svg_data, svg_node)?;
 
@@ -31,21 +29,11 @@ pub fn save_to_writable(svg_node: &impl svg::node::Node, sink: impl Write) -> Re
 
     let image = render(&svg_tree, FitTo::Original, None).unwrap();
 
-    //XXX We needed to encode the data as a png before piping to ffmpeg
-    //Modified from resvg save_png
-    let mut encoder = png::Encoder::new(sink, image.width(), image.height());
-    encoder.set_color(png::ColorType::RGBA);
-    encoder.set_depth(png::BitDepth::Eight);
-    let mut writer = encoder.write_header()?;
-    writer.write_image_data(&image.data())?;
-
-    //XXX Somehow the encoder takes ownership of sink but that doesn't break anything
-    //sink.write(image.data())?;
-    //sink.flush();
+    sink.write_all(image.data())?;
     Ok(())
 }
 
-pub fn start_ffmpeg(outfile: String) -> Option<process::ChildStdin> {
+pub fn start_ffmpeg(outfile: String, width: i32, height: i32) -> Option<process::ChildStdin> {
     let ffmpeg = Command::new("ffmpeg")
         .stdin(Stdio::piped())
         .args(&[
@@ -55,14 +43,20 @@ pub fn start_ffmpeg(outfile: String) -> Option<process::ChildStdin> {
             "-y", // Force overwrite
             "-r",
             "25",
-            "-i", // Use stdin
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgba", // Set the input format as RGBA
+            "-s",
+            format!("{}x{}", width, height).as_str(), // Set the image size
+            "-i",                                     // Use stdin
             "-",
             "-c:v",
-            "libx264",
+            "libx264rgb",
             "-vf",
             "fps=25",
             "-pix_fmt",
-            "yuv420p",
+            "yuv444p",
             &outfile,
         ])
         .spawn()
