@@ -1,5 +1,3 @@
-use svg;
-
 use resvg::render;
 use std::io::{Cursor, Result, Write};
 use std::path::Path;

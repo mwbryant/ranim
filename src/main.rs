@@ -9,7 +9,9 @@ use crate::mobject::*;
 use crate::scene::*;
 
 fn main() {
-    let outfile = env::args().nth(1).unwrap_or("final.mp4".to_string());
+    let outfile = env::args()
+        .nth(1)
+        .unwrap_or_else(|| "final.mp4".to_string());
     println!("Writing to {}", outfile);
 
     let obj = Mobject::Rectangle {

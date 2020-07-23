@@ -15,12 +15,12 @@ pub enum Mobject {
 impl Mobject {
     pub fn to_addable(&self) -> element::SVG {
         match self {
-            Mobject::Rectangle { x, y, w, h, color } => element::SVG::new().add(
-                element::Rectangle::new()
-                    .set("x", x.clone())
-                    .set("y", y.clone())
-                    .set("width", w.clone())
-                    .set("height", h.clone())
+            Mobject::Rectangle { x, y, w, h, color } => svg::node::element::SVG::new().add(
+                svg::node::element::Rectangle::new()
+                    .set("x", *x)
+                    .set("y", *y)
+                    .set("width", *w)
+                    .set("height", *h)
                     .set("stroke-width", 3)
                     .set("stroke", color.clone()),
             ),
