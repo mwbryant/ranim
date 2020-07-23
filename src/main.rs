@@ -26,14 +26,7 @@ fn main() {
         h: 100.,
         color: String::from("green"),
     };
-    let mut scene = Scene::new(500, 500)
-        .wait(1.)
-        .appear(&obj)
-        .wait(1.)
-        .appear(&obj2)
-        .wait(1.)
-        .disappear(&obj)
-        .wait(1.);
+    let mut scene = Scene::new(500, 500).appear(&obj2).fade_out(&obj2, 5.);
 
     let ffmpeg_pipe = render::start_ffmpeg(outfile, 500, 500).unwrap();
 
