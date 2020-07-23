@@ -35,7 +35,7 @@ fn main() {
         .disappear(&obj)
         .wait(1.);
 
-    let ffmpeg_pipe = render::start_ffmpeg(outfile).unwrap();
+    let ffmpeg_pipe = render::start_ffmpeg(outfile, 500, 500).unwrap();
 
     scene.render(ffmpeg_pipe).unwrap();
 }
